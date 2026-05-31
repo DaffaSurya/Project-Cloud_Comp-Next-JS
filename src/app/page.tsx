@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 // Interfaces
 interface Unit {
@@ -37,6 +38,12 @@ interface ActivityLog {
 export default function Home() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<"dashboard" | "units" | "edit">("dashboard");
+
+  // Supabase states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [categoriesList, setCategoriesList] = useState<{ id: number; name: string }[]>([]);
+  const [buildingsList, setBuildingsList] = useState<{ id: number; name: string; lat: number; lng: number }[]>([]);
 
   // SSE & MCP State (Preserving original logic, integrated elegantly)
   const [connectionStatus, setConnectionStatus] = useState<"disconnected" | "connecting" | "connected" | "error">("disconnected");
@@ -76,189 +83,76 @@ export default function Home() {
     };
   }, []);
 
-  // Primary Units Data State (High-fidelity Mock Data matching screenshot perfectly)
-  const [units, setUnits] = useState<Unit[]>([
-    {
-      id: "0001",
-      nama: "Departemen Teknik Informatika",
-      namaPendek: "Dept. TI",
-      kategori: "Departemen",
-      gedung: "Gedung TI",
-      lantai: "Lt. 3",
-      alamat: "Jl. Teknik Kampus Blok F, No. 4",
-      latitude: -7.27543,
-      longitude: 112.79742,
-      jamBuka: "08:00",
-      jamTutup: "16:00",
-      status: "Buka",
-      nomorKontak: "+62 31 594 1234",
-      situs: "ti.kampus.ac.id",
-      diperbarui: "09:14",
-      diperbaruiOleh: "Rizky • r.admin",
-      dibuat: "03 Mei 2026 • 14:22",
-      deskripsi: "Kantor departemen — administrasi akademik mahasiswa S1: KRS, transkrip, surat, bimbingan TA."
-    },
-    {
-      id: "0002",
-      nama: "PAA Teknik Informatika",
-      namaPendek: "PAA TI",
-      kategori: "PAA",
-      gedung: "Gedung TI",
-      lantai: "Lt. 2",
-      alamat: "Jl. Teknik Kampus Blok F, Lantai 2",
-      latitude: -7.27543,
-      longitude: 112.79742,
-      jamBuka: "08:00",
-      jamTutup: "15:30",
-      status: "Buka",
-      nomorKontak: "+62 31 594 1235",
-      situs: "paa.ti.kampus.ac.id",
-      diperbarui: "08:41",
-      diperbaruiOleh: "Nadia • n.admin",
-      dibuat: "04 Mei 2026 • 10:15",
-      deskripsi: "Pusat Administrasi Akademik untuk departemen Teknik Informatika."
-    },
-    {
-      id: "0003",
-      nama: "Departemen Kesehatan Lingkungan",
-      namaPendek: "Dept. Kesmas",
-      kategori: "Kesehatan",
-      gedung: "Gedung FKM",
-      lantai: "Lt. 2",
-      alamat: "Jl. Mulyorejo Kampus C, Gedung FKM",
-      latitude: -7.27411,
-      longitude: 112.79901,
-      jamBuka: "08:00",
-      jamTutup: "16:00",
-      status: "Buka",
-      nomorKontak: "+62 31 594 5567",
-      situs: "kl.fkm.kampus.ac.id",
-      diperbarui: "kemarin",
-      diperbaruiOleh: "Rizky • r.admin",
-      dibuat: "01 Mei 2026 • 09:30",
-      deskripsi: "Kantor administrasi dan perkuliahan program studi Kesehatan Lingkungan."
-    },
-    {
-      id: "0004",
-      nama: "Departemen Keperawatan",
-      namaPendek: "Dept. Kep",
-      kategori: "Kesehatan",
-      gedung: "Gedung FK",
-      lantai: "Lt. 4",
-      alamat: "Jl. Dharmahusada 47, Gedung FK",
-      latitude: -7.27685,
-      longitude: 112.79251,
-      jamBuka: "08:00",
-      jamTutup: "16:00",
-      status: "Buka",
-      nomorKontak: "+62 31 592 1122",
-      situs: "kep.fk.kampus.ac.id",
-      diperbarui: "kemarin",
-      diperbaruiOleh: "Sistem • sync",
-      dibuat: "30 April 2026 • 08:00",
-      deskripsi: "Departemen Keperawatan Fakultas Kedokteran Kampus A."
-    },
-    {
-      id: "0005",
-      nama: "Kemahasiswaan Vokasi",
-      namaPendek: "Kemahasiswaan Vokasi",
-      kategori: "Kemahasiswaan",
-      gedung: "Gedung Vokasi",
-      lantai: "Lt. 1",
-      alamat: "Jl. Srikana 38, Gedung Vokasi",
-      latitude: -7.27991,
-      longitude: 112.79422,
-      jamBuka: "07:30",
-      jamTutup: "15:30",
-      status: "Tutup 30m",
-      nomorKontak: "+62 31 502 3456",
-      situs: "kemahasiswaan.vokasi.ac.id",
-      diperbarui: "13 Mei",
-      diperbaruiOleh: "Rizky • r.admin",
-      dibuat: "10 April 2026 • 13:00",
-      deskripsi: "Layanan kemahasiswaan, beasiswa, organisasi, dan kegiatan mahasiswa Sekolah Vokasi."
-    },
-    {
-      id: "0006",
-      nama: "Sekretariat Sekolah Vokasi",
-      namaPendek: "Sek. Vokasi",
-      kategori: "Vokasi",
-      gedung: "Gedung Vokasi",
-      lantai: "Lt. 2",
-      alamat: "Jl. Srikana 38, Gedung Vokasi Lt. 2",
-      latitude: -7.27991,
-      longitude: 112.79422,
-      jamBuka: "08:00",
-      jamTutup: "16:00",
-      status: "Buka",
-      nomorKontak: "+62 31 502 3457",
-      situs: "vokasi.kampus.ac.id",
-      diperbarui: "12 Mei",
-      diperbaruiOleh: "Nadia • n.admin",
-      dibuat: "08 April 2026 • 09:00",
-      deskripsi: "Kantor sekretariat administrasi utama Sekolah Vokasi."
-    },
-    {
-      id: "0007",
-      nama: "Lab Komputasi & Jaringan",
-      namaPendek: "Lab Komputasi",
-      kategori: "Lab",
-      gedung: "Gedung TI",
-      lantai: "Lt. 4",
-      alamat: "Jl. Teknik Kampus Blok F, Gedung TI Lt. 4",
-      latitude: -7.27543,
-      longitude: 112.79742,
-      jamBuka: "08:00",
-      jamTutup: "21:00",
-      status: "Buka",
-      nomorKontak: "+62 31 594 1236",
-      situs: "labkom.ti.kampus.ac.id",
-      diperbarui: "12 Mei",
-      diperbaruiOleh: "Nadia • n.admin",
-      dibuat: "05 April 2026 • 15:45",
-      deskripsi: "Laboratorium komputer untuk praktikum pemrograman, komputasi, dan jaringan komputer."
-    },
-    {
-      id: "0008",
-      nama: "Departemen Epidemiologi",
-      namaPendek: "Dept. Epid",
-      kategori: "Kesehatan",
-      gedung: "Gedung FKM",
-      lantai: "Lt. 3",
-      alamat: "Jl. Mulyorejo Kampus C, Gedung FKM",
-      latitude: -7.27411,
-      longitude: 112.79901,
-      jamBuka: "08:00",
-      jamTutup: "16:00",
-      status: "Tutup",
-      nomorKontak: "+62 31 594 5568",
-      situs: "epi.fkm.kampus.ac.id",
-      diperbarui: "11 Mei",
-      diperbaruiOleh: "Rizky • r.admin",
-      dibuat: "02 Mei 2026 • 11:20",
-      deskripsi: "Departemen akademik untuk pengajaran dan riset bidang epidemiologi penyakit."
-    },
-    {
-      id: "0009",
-      nama: "Lab Bahasa & Multimedia",
-      namaPendek: "Lab Bahasa",
-      kategori: "Lab",
-      gedung: "Gedung TI",
-      lantai: "Lt. 2",
-      alamat: "Jl. Teknik Kampus Blok F, Gedung TI Lt. 2",
-      latitude: -7.27543,
-      longitude: 112.79742,
-      jamBuka: "08:00",
-      jamTutup: "18:00",
-      status: "Buka",
-      nomorKontak: "+62 31 594 1238",
-      situs: "lab-bahasa.ti.ac.id",
-      diperbarui: "10 Mei",
-      diperbaruiOleh: "Sistem • sync",
-      dibuat: "28 April 2026 • 10:00",
-      deskripsi: "Laboratorium fasilitas penunjang pembelajaran bahasa dan audio visual digital."
+  // Primary Units Data State (Back-end database backed via Supabase client)
+  const [units, setUnits] = useState<Unit[]>([]);
+
+  // Read Operation: Fetch all units and linked tables
+  const fetchUnits = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      // 1. Fetch categories for relational dropdown map
+      const { data: cats, error: catErr } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name", { ascending: true });
+      if (catErr) throw catErr;
+      setCategoriesList(cats || []);
+
+      // 2. Fetch buildings for relational dropdown map
+      const { data: bldgs, error: bldgErr } = await supabase
+        .from("buildings")
+        .select("id, name, lat, lng")
+        .order("name", { ascending: true });
+      if (bldgErr) throw bldgErr;
+      setBuildingsList(bldgs || []);
+
+      // 3. Fetch primary units with relational joins
+      const { data: unitsData, error: unitsErr } = await supabase
+        .from("units")
+        .select("*, categories(id, name), buildings(id, name)")
+        .order("id", { ascending: true });
+      if (unitsErr) throw unitsErr;
+
+      // 4. Map DB entities to UI state properties
+      const mapped = (unitsData || []).map((u: any) => ({
+        id: String(u.id),
+        nama: u.name || "",
+        namaPendek: u.short_name || "",
+        kategori: (u.categories?.name || "Departemen") as Unit["kategori"],
+        gedung: u.buildings?.name || "Gedung TI",
+        lantai: u.floor || "",
+        alamat: u.address || "",
+        latitude: Number(u.lat) || 0,
+        longitude: Number(u.lng) || 0,
+        jamBuka: u.open_hours ? u.open_hours.substring(0, 5) : "08:00",
+        jamTutup: u.close_hours ? u.close_hours.substring(0, 5) : "16:00",
+        status: (u.is_published ? "Buka" : "Tutup") as Unit["status"],
+        nomorKontak: "",
+        situs: "",
+        diperbarui: u.updated_at
+          ? new Date(u.updated_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+          : "Baru",
+        diperbaruiOleh: "Sistem • sync",
+        dibuat: u.created_at
+          ? new Date(u.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+          : "Baru",
+        deskripsi: u.description || ""
+      }));
+
+      setUnits(mapped);
+    } catch (err: any) {
+      console.error("Error fetching database tables from Supabase:", err);
+      setErrorMessage("Gagal menyinkronkan data dengan Supabase: " + err.message);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  // Mount Effect to initialize database tables
+  useEffect(() => {
+    fetchUnits();
+  }, []);
 
   // Activity Logs state (Starts with values matching screenshot, dynamically grows!)
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([
@@ -412,119 +306,194 @@ export default function Home() {
     originalUnitRef.current = null;
   };
 
-  // Save changes
-  const handleSaveChanges = () => {
+  // Create (Insert) & Update (Edit) Operations
+  const handleSaveChanges = async () => {
     if (!editingUnitId) return;
 
-    // Update units
-    setUnits((prev) =>
-      prev.map((u) => {
-        if (u.id === editingUnitId) {
-          const nowStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-          return {
-            ...u,
-            nama: formName,
-            namaPendek: formShortName,
-            kategori: formCategory,
-            deskripsi: formDesc,
-            gedung: formBuilding,
-            lantai: formFloor,
-            alamat: formAddress,
-            latitude: formLat,
-            longitude: formLng,
-            jamBuka: formOpenTime,
-            jamTutup: formCloseTime,
-            status: formStatus,
-            nomorKontak: formContact,
-            situs: formWebsite,
-            diperbarui: nowStr,
-            diperbaruiOleh: "Rizky • r.admin"
-          };
-        }
-        return u;
-      })
-    );
+    setIsLoading(true);
+    setErrorMessage("");
 
-    // Push to activity logs
-    const newLogId = "l_" + Date.now();
-    const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    setActivityLogs((prev) => [
-      {
-        id: newLogId,
-        user: "Rizky",
-        action: "memperbarui",
-        target: formName,
-        time: nowTimeStr,
-        relativeTime: "Baru saja",
-        initials: "R"
-      },
-      ...prev
-    ]);
+    try {
+      // 1. Resolve relational foreign keys from selected dropdown text names
+      const selectedCat = categoriesList.find((c) => c.name === formCategory);
+      const selectedBldg = buildingsList.find((b) => b.name === formBuilding);
 
-    // Show saved auto toast
-    const nowTime = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    setLastSavedTime(nowTime);
-    setShowAutoSaveToast(true);
-    setTimeout(() => setShowAutoSaveToast(false), 3000);
+      // 2. Identify if operation is a Create or Update
+      const isNewUnit = !units.some((u) => u.id === editingUnitId);
 
-    // Return to list view
-    setActiveTab("units");
-    setEditingUnitId(null);
-    originalUnitRef.current = null;
+      // 3. Assemble payload aligning with the database schema
+      const payload = {
+        name: formName,
+        short_name: formShortName,
+        category_id: selectedCat?.id || null,
+        building_id: selectedBldg?.id || null,
+        floor: formFloor,
+        lat: Number(formLat),
+        lng: Number(formLng),
+        address: formAddress || null,
+        description: formDesc || null,
+        open_hours: formOpenTime ? (formOpenTime.length === 5 ? formOpenTime + ":00" : formOpenTime) : null,
+        close_hours: formCloseTime ? (formCloseTime.length === 5 ? formCloseTime + ":00" : formCloseTime) : null,
+        is_published: formStatus === "Buka"
+      };
+
+      if (isNewUnit) {
+        // Execute Supabase Insert
+        const { error } = await supabase.from("units").insert([payload]);
+        if (error) throw error;
+
+        // Add action to activity logs state
+        setActivityLogs((prev) => [
+          {
+            id: "l_" + Date.now(),
+            user: "Rizky",
+            action: "menambahkan",
+            target: formName,
+            time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+            relativeTime: "Baru saja",
+            initials: "R"
+          },
+          ...prev
+        ]);
+      } else {
+        // Execute Supabase Update
+        const { error } = await supabase
+          .from("units")
+          .update(payload)
+          .eq("id", Number(editingUnitId));
+        if (error) throw error;
+
+        // Add action to activity logs state
+        setActivityLogs((prev) => [
+          {
+            id: "l_" + Date.now(),
+            user: "Rizky",
+            action: "memperbarui",
+            target: formName,
+            time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+            relativeTime: "Baru saja",
+            initials: "R"
+          },
+          ...prev
+        ]);
+      }
+
+      // 4. Force state sync from database to acquire auto-incrementing serial IDs
+      await fetchUnits();
+
+      // Show saved toast success confirmation
+      const nowTime = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      setLastSavedTime(nowTime);
+      setShowAutoSaveToast(true);
+      setTimeout(() => setShowAutoSaveToast(false), 3000);
+
+      // Return to units list
+      setActiveTab("units");
+      setEditingUnitId(null);
+      originalUnitRef.current = null;
+    } catch (err: any) {
+      console.error("Error executing database save to Supabase:", err);
+      setErrorMessage("Gagal menyimpan unit ke Supabase: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Delete single unit from inside form
-  const handleDeleteUnit = (id: string) => {
+  // Delete (Remove) Single Unit Operation
+  const handleDeleteUnit = async (id: string) => {
+    // If the unit has not been saved in the database yet (it is new), just close the form
+    const isNewUnit = !units.some((u) => u.id === id);
+    if (isNewUnit) {
+      setActiveTab("units");
+      setEditingUnitId(null);
+      return;
+    }
+
     const unitToDelete = units.find((u) => u.id === id);
     if (!unitToDelete) return;
 
     if (confirm(`Apakah Anda yakin ingin menghapus unit "${unitToDelete.nama}"?`)) {
-      setUnits((prev) => prev.filter((u) => u.id !== id));
-      setSelectedUnitIds((prev) => prev.filter((uid) => uid !== id));
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        // Execute Supabase delete
+        const { error } = await supabase
+          .from("units")
+          .delete()
+          .eq("id", Number(id));
+        if (error) throw error;
 
-      // Push delete log
-      const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-      setActivityLogs((prev) => [
-        {
-          id: "l_" + Date.now(),
-          user: "Rizky",
-          action: "menghapus",
-          target: unitToDelete.nama,
-          time: nowTimeStr,
-          relativeTime: "Baru saja",
-          initials: "R"
-        },
-        ...prev
-      ]);
+        // Push action to activity logs state
+        const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+        setActivityLogs((prev) => [
+          {
+            id: "l_" + Date.now(),
+            user: "Rizky",
+            action: "menghapus",
+            target: unitToDelete.nama,
+            time: nowTimeStr,
+            relativeTime: "Baru saja",
+            initials: "R"
+          },
+          ...prev
+        ]);
 
-      setActiveTab("units");
-      setEditingUnitId(null);
+        // Remove from current selection & re-sync from database
+        setSelectedUnitIds((prev) => prev.filter((uid) => uid !== id));
+        await fetchUnits();
+
+        setActiveTab("units");
+        setEditingUnitId(null);
+      } catch (err: any) {
+        console.error("Error executing database delete to Supabase:", err);
+        setErrorMessage("Gagal menghapus unit: " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  // Bulk Actions
-  const handleBulkDelete = () => {
+  // Delete (Remove) Bulk Units Operation
+  const handleBulkDelete = async () => {
     if (selectedUnitIds.length === 0) return;
 
     if (confirm(`Apakah Anda yakin ingin menghapus ${selectedUnitIds.length} unit yang dipilih?`)) {
-      setUnits((prev) => prev.filter((u) => !selectedUnitIds.includes(u.id)));
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        const idsToDelete = selectedUnitIds.map(Number);
+        
+        // Execute Supabase bulk delete
+        const { error } = await supabase
+          .from("units")
+          .delete()
+          .in("id", idsToDelete);
+        if (error) throw error;
 
-      // Add to log
-      const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-      setActivityLogs((prev) => [
-        {
-          id: "l_" + Date.now(),
-          user: "Rizky",
-          action: "menghapus massal",
-          target: `${selectedUnitIds.length} unit`,
-          time: nowTimeStr,
-          relativeTime: "Baru saja",
-          initials: "R"
-        },
-        ...prev
-      ]);
+        // Push action to activity logs state
+        const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+        setActivityLogs((prev) => [
+          {
+            id: "l_" + Date.now(),
+            user: "Rizky",
+            action: "menghapus massal",
+            target: `${selectedUnitIds.length} unit`,
+            time: nowTimeStr,
+            relativeTime: "Baru saja",
+            initials: "R"
+          },
+          ...prev
+        ]);
 
-      setSelectedUnitIds([]);
+        // Reset selection & re-sync from database
+        setSelectedUnitIds([]);
+        await fetchUnits();
+      } catch (err: any) {
+        console.error("Error executing database bulk delete to Supabase:", err);
+        setErrorMessage("Gagal menghapus unit secara massal: " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -854,6 +823,67 @@ export default function Home() {
 
       {/* Main Area */}
       <main className="main-content">
+        {/* Supabase loading spinner banner */}
+        {isLoading && (
+          <div style={{
+            padding: "0.85rem 1.5rem",
+            backgroundColor: "rgba(0, 0, 0, 0.05)",
+            backdropFilter: "blur(8px)",
+            borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            color: "var(--ink)",
+            fontSize: "13px",
+            fontWeight: "600"
+          }}>
+            <svg style={{ animation: "spin 1s linear infinite", width: "16px", height: "16px" }} fill="none" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.2 }}></circle>
+              <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" style={{ opacity: 0.8 }}></path>
+            </svg>
+            <span>Menyinkronkan data real-time dengan Supabase...</span>
+          </div>
+        )}
+
+        {/* Supabase error prompt banner */}
+        {errorMessage && (
+          <div style={{
+            padding: "0.85rem 1.5rem",
+            backgroundColor: "rgba(239, 68, 68, 0.06)",
+            backdropFilter: "blur(8px)",
+            borderBottom: "1px solid rgba(239, 68, 68, 0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            color: "var(--closed)",
+            fontSize: "13px",
+            fontWeight: "600"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{errorMessage}</span>
+            </div>
+            <button
+              onClick={() => setErrorMessage("")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--closed)",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "14px"
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Top Header Bar */}
         <div className="top-bar">
           <div className="breadcrumb">
