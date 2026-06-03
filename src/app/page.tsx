@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { saveUnitAction, deleteUnitAction, bulkDeleteUnitsAction } from "@/app/actions";
 
 // Interfaces
 interface Unit {
@@ -299,6 +300,12 @@ export default function Home() {
     formWebsite
   ]);
 
+  // Memoized check if the active unit is a new unit
+  const isNewUnit = useMemo(() => {
+    if (!editingUnitId) return false;
+    return !units.some((u) => u.id === editingUnitId);
+  }, [editingUnitId, units]);
+
   // Cancel edits
   const handleCancelEdit = () => {
     setActiveTab("units");
@@ -337,11 +344,18 @@ export default function Home() {
         is_published: formStatus === "Buka"
       };
 
-      if (isNewUnit) {
-        // Execute Supabase Insert
-        const { error } = await supabase.from("units").insert([payload]);
-        if (error) throw error;
+      // Execute Secure Database Save using Next.js Server Action
+      const response = await saveUnitAction(
+        payload,
+        isNewUnit,
+        isNewUnit ? undefined : Number(editingUnitId)
+      );
 
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+
+      if (isNewUnit) {
         // Add action to activity logs state
         setActivityLogs((prev) => [
           {
@@ -356,13 +370,6 @@ export default function Home() {
           ...prev
         ]);
       } else {
-        // Execute Supabase Update
-        const { error } = await supabase
-          .from("units")
-          .update(payload)
-          .eq("id", Number(editingUnitId));
-        if (error) throw error;
-
         // Add action to activity logs state
         setActivityLogs((prev) => [
           {
@@ -392,8 +399,8 @@ export default function Home() {
       setEditingUnitId(null);
       originalUnitRef.current = null;
     } catch (err: any) {
-      console.error("Error executing database save to Supabase:", err);
-      setErrorMessage("Gagal menyimpan unit ke Supabase: " + err.message);
+      console.error("Error executing database save via Server Action:", err);
+      setErrorMessage("Gagal menyimpan unit ke database: " + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -416,12 +423,11 @@ export default function Home() {
       setIsLoading(true);
       setErrorMessage("");
       try {
-        // Execute Supabase delete
-        const { error } = await supabase
-          .from("units")
-          .delete()
-          .eq("id", Number(id));
-        if (error) throw error;
+        // Execute Secure Database Delete using Next.js Server Action
+        const response = await deleteUnitAction(Number(id));
+        if (!response.success) {
+          throw new Error(response.error);
+        }
 
         // Push action to activity logs state
         const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -445,7 +451,7 @@ export default function Home() {
         setActiveTab("units");
         setEditingUnitId(null);
       } catch (err: any) {
-        console.error("Error executing database delete to Supabase:", err);
+        console.error("Error executing database delete via Server Action:", err);
         setErrorMessage("Gagal menghapus unit: " + err.message);
       } finally {
         setIsLoading(false);
@@ -463,12 +469,11 @@ export default function Home() {
       try {
         const idsToDelete = selectedUnitIds.map(Number);
         
-        // Execute Supabase bulk delete
-        const { error } = await supabase
-          .from("units")
-          .delete()
-          .in("id", idsToDelete);
-        if (error) throw error;
+        // Execute Secure Bulk Database Delete using Next.js Server Action
+        const response = await bulkDeleteUnitsAction(idsToDelete);
+        if (!response.success) {
+          throw new Error(response.error);
+        }
 
         // Push action to activity logs state
         const nowTimeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -489,7 +494,7 @@ export default function Home() {
         setSelectedUnitIds([]);
         await fetchUnits();
       } catch (err: any) {
-        console.error("Error executing database bulk delete to Supabase:", err);
+        console.error("Error executing database bulk delete via Server Action:", err);
         setErrorMessage("Gagal menghapus unit secara massal: " + err.message);
       } finally {
         setIsLoading(false);
@@ -2169,7 +2174,7 @@ export default function Home() {
                   className="btn btn-accent"
                   style={{ backgroundColor: "var(--route)" }}
                   onClick={handleSaveChanges}
-                  disabled={changedFields.length === 0}
+                  disabled={!isNewUnit && changedFields.length === 0}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="20 6 9 17 4 12" />
