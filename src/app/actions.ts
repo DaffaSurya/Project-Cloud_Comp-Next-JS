@@ -83,3 +83,41 @@ export async function bulkDeleteUnitsAction(ids: number[]): Promise<ServerAction
     return { success: false, error: err.message || "Failed to bulk delete units" };
   }
 }
+
+/**
+ * Next.js Server Action to register a Superadmin user in the auth system.
+ * Bypasses RLS securely on the server.
+ */
+export async function registerSuperAdminAction(formData: FormData) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+
+  if (!email || !password) {
+    return { error: "Email dan password wajib diisi" };
+  }
+
+  try {
+    // 1. Buat user menggunakan Admin API (melewati verifikasi email standar jika perlu)
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true, // Set true jika ingin langsung aktif tanpa perlu klik link email
+    });
+
+    if (userError) throw userError;
+
+    // 2. Set role 'superadmin' di app_metadata user
+    // app_metadata lebih aman untuk menyimpan role dibandingkan user_metadata
+    const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      userData.user.id,
+      { app_metadata: { role: "superadmin" } }
+    );
+
+    if (updateError) throw updateError;
+
+    return { success: true, message: "Superadmin berhasil didaftarkan!" };
+  } catch (error: any) {
+    console.error("Error saat registrasi superadmin:", error);
+    return { error: error.message || "Terjadi kesalahan saat registrasi" };
+  }
+}

@@ -6,11 +6,18 @@ if (typeof window !== "undefined") {
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://xaeudnpyvixevxjuslxt.supabase.co";
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseServiceRoleKey || supabaseServiceRoleKey === "your_supabase_service_role_key_here") {
+const isPlaceholderOrMissing =
+  !supabaseServiceRoleKey ||
+  supabaseServiceRoleKey === "your_supabase_service_role_key_here" ||
+  supabaseServiceRoleKey.trim() === "";
+
+if (isPlaceholderOrMissing) {
+  // Gunakan anon key sebagai fallback aman agar server actions tidak gagal total dengan error 'Invalid API key'
+  supabaseServiceRoleKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   console.warn(
-    "SUPABASE_SERVICE_ROLE_KEY is missing or using placeholder! Server-side mutations will fail until a valid key is provided in .env.local."
+    "Warning: SUPABASE_SERVICE_ROLE_KEY tidak ditemukan atau masih menggunakan placeholder! Menggunakan NEXT_PUBLIC_SUPABASE_ANON_KEY sebagai fallback. Aksi penulisan/mutasi database mungkin gagal jika RLS (Row Level Security) aktif di Supabase Anda."
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { saveUnitAction, deleteUnitAction, bulkDeleteUnitsAction } from "@/app/actions";
 
@@ -37,6 +38,51 @@ interface ActivityLog {
 }
 
 export default function Home() {
+  const router = useRouter();
+
+  // Auth state
+  const [authLoading, setAuthLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState("r.admin@kampus.ac.id");
+  const [userName, setUserName] = useState("Rizky - Admin");
+  const [userInitials, setUserInitials] = useState("R");
+
+  // Check auth session
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+      } else {
+        const email = session.user.email || "r.admin@kampus.ac.id";
+        setUserEmail(email);
+        const parts = email.split("@")[0].split(".");
+        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+        setUserName(name + " - Admin");
+        setUserInitials(name.charAt(0).toUpperCase() || "R");
+        setAuthLoading(false);
+      }
+    };
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.push("/login");
+      } else {
+        const email = session.user?.email || "r.admin@kampus.ac.id";
+        setUserEmail(email);
+        const parts = email.split("@")[0].split(".");
+        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+        setUserName(name + " - Admin");
+        setUserInitials(name.charAt(0).toUpperCase() || "R");
+        setAuthLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
   // Navigation State
   const [activeTab, setActiveTab] = useState<"dashboard" | "units" | "edit">("dashboard");
 
@@ -655,6 +701,29 @@ export default function Home() {
     };
   }, [formLat, formLng]);
 
+  if (authLoading) {
+    return (
+      <div style={{
+        display: "flex",
+        height: "100vh",
+        width: "100vw",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--paper)",
+        fontFamily: "var(--font-sans)",
+        color: "var(--ink-2)",
+        fontSize: "14px",
+        fontWeight: "600"
+      }}>
+        <svg style={{ animation: "spin 1s linear infinite", width: "24px", height: "24px", marginRight: "12px" }} fill="none" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.2 }}></circle>
+          <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" style={{ opacity: 0.8 }}></path>
+        </svg>
+        <span>Memverifikasi sesi admin...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       {/* 1. Left Sidebar */}
@@ -805,14 +874,17 @@ export default function Home() {
           {/* User Profile */}
           <div className="user-profile-card">
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <div className="user-avatar-circle">R</div>
+              <div className="user-avatar-circle">{userInitials}</div>
               <div className="user-info">
-                <span className="user-name">Rizky - Admin</span>
-                <span className="user-email">r.admin@kampus.ac.id</span>
+                <span className="user-name">{userName}</span>
+                <span className="user-email">{userEmail}</span>
               </div>
             </div>
             <button
-              onClick={() => alert("Admin keluar sesi.")}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push("/login");
+              }}
               style={{ background: "none", border: "none", color: "var(--ink-3)", cursor: "pointer" }}
               title="Logout"
             >

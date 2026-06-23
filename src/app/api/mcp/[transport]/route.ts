@@ -1,7 +1,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 
-const handler = createMcpHandler(async (server) => {
+const mcpHandler = createMcpHandler(async (server) => {
   // 1. Tool untuk informasi sistem
   server.tool(
     "get_system_info",
@@ -111,6 +111,52 @@ const handler = createMcpHandler(async (server) => {
       };
     }
   );
-});
+}, {}, { basePath: "/api/mcp" });
 
-export { handler as GET, handler as POST };
+// Next.js Route Handler wrapper
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ transport: string }> }
+) {
+  const params = await context.params;
+  const transport = params.transport;
+
+  // Stateless SSE fallback for local development without Redis configuration
+  if (transport === "sse" && !process.env.REDIS_URL && !process.env.KV_URL) {
+    const responseStream = new ReadableStream({
+      start(controller) {
+        // Stream the initial endpoint location event for MCP UI
+        const eventData = `event: endpoint\ndata: /api/mcp/sse?sessionId=active-session\n\n`;
+        controller.enqueue(new TextEncoder().encode(eventData));
+
+        // Keep SSE connection alive with period ping heartbeats
+        const interval = setInterval(() => {
+          controller.enqueue(new TextEncoder().encode(`: ping\n\n`));
+        }, 15000);
+
+        req.signal.addEventListener("abort", () => {
+          clearInterval(interval);
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(responseStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+  }
+
+  // Pass request to original mcp-handler
+  return mcpHandler(req);
+}
+
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ transport: string }> }
+) {
+  return mcpHandler(req);
+}
