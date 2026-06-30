@@ -5,20 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { registerSuperAdminAction } from "@/app/actions";
-import "./login.css";
+import "./register.css";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  
-  // Auth state
-  const [email, setEmail] = useState("r.admin@kampus.ac.id");
+
+  // Registration state
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
 
   // Check if session already exists
   useEffect(() => {
@@ -31,85 +31,78 @@ export default function LoginPage() {
     checkUser();
   }, [router]);
 
-  // Handle standard login
-  const handleLogin = async (e: React.FormEvent) => {
+  // Handle registration
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
 
-    try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    // Client-side validations
+    if (password.length < 10) {
+      setError("Kata sandi harus minimal 10 karakter.");
+      setLoading(false);
+      return;
+    }
 
-      if (authError) {
-        throw authError;
+    if (password !== confirmPassword) {
+      setError("Kata sandi dan konfirmasi kata sandi tidak cocok.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("password", password);
+
+      const result = await registerSuperAdminAction(formData);
+
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      setSuccess("Login berhasil! Mengalihkan ke dashboard...");
+      setSuccess("Registrasi admin berhasil! Mengalihkan ke halaman masuk...");
       setTimeout(() => {
-        router.push("/");
-      }, 1000);
+        router.push("/login");
+      }, 2000);
     } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message || "Gagal masuk. Silakan periksa kredensial Anda.");
+      console.error("Registration page error:", err);
+      setError(err.message || "Terjadi kesalahan saat melakukan registrasi.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Kampus SSO mock login
-  const handleSSOLogin = () => {
-    setLoading(true);
-    setError(null);
-    setSuccess("Menghubungkan ke SSO Kampus...");
-    
-    // Simulate SSO success and redirect
-    setTimeout(async () => {
-      // Create or get a mock user session for developers to easily preview the app
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Sign in with default user or mock user if exists, or show notification
-        setError("SSO Kampus memerlukan pendaftaran awal. Silakan gunakan kredensial email admin.");
-        setLoading(false);
-      } else {
-        router.push("/");
-      }
-    }, 1200);
-  };
-
-
   return (
-    <div className="login-container">
+    <div className="register-container">
       {/* LEFT PANEL: Visual Banner */}
-      <div className="login-left">
+      <div className="register-left">
         {/* Brand Logo Header */}
-        <div className="login-brand">
-          <div className="login-brand-icon">
+        <div className="register-brand">
+          <div className="register-brand-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" fill="var(--open)" stroke="var(--open)" />
             </svg>
           </div>
-          <div className="login-brand-text">
-            <span className="login-brand-sub">DIREKTORI • KAMPUS</span>
-            <span className="login-brand-main">Map Directory • Admin</span>
+          <div className="register-brand-text">
+            <span className="register-brand-sub">DIREKTORI • KAMPUS</span>
+            <span className="register-brand-main">Map Directory • Admin</span>
           </div>
         </div>
 
         {/* Left Content Body */}
-        <div className="login-left-body">
-          <div className="login-left-badge">
+        <div className="register-left-body">
+          <div className="register-left-badge">
             <span className="badge-dot"></span>
             <span>PANEL INTERNAL • V1.0</span>
           </div>
-          <h1 className="login-left-title">
+          <h1 className="register-left-title">
             Kelola unit, gedung, dan <span className="accent">kategori kampus</span>.
           </h1>
-          <p className="login-left-desc">
-            Masuk untuk memperbarui data direktori yang dipakai aplikasi Android — foto, koordinat, jam layanan, dan lantai.
+          <p className="register-left-desc">
+            Daftar untuk membuat kredensial admin baru yang digunakan untuk mengelola data direktori — foto, koordinat, jam layanan, dan lantai.
           </p>
 
           {/* Visual Map Canvas Grid Mockup */}
@@ -197,41 +190,40 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Left Footer (Empty for spacing aligning with mockup) */}
+        {/* Left Footer - Empty for spacing (Next.js logo ignored) */}
         <div></div>
       </div>
 
-      {/* RIGHT PANEL: Login Form */}
-      <div className="login-right">
+      {/* RIGHT PANEL: Register Form */}
+      <div className="register-right">
         {/* Right Top Info Header */}
-        <div className="login-right-header">
-          <span className="login-right-domain">kampus.ac.id/admin</span>
-          <Link href="/register" className="btn-help">
+        <div className="register-right-header">
+          <span className="register-right-domain">kampus.ac.id/admin</span>
+          <Link href="/login" className="btn-login-redirect">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
             </svg>
-            <span>Butuh akses?</span>
+            <span>Sudah punya akun? Masuk</span>
           </Link>
         </div>
 
-        {/* Login Form Center Body */}
-        <div className="login-right-body">
-
+        {/* Register Form Center Body */}
+        <div className="register-right-body">
           {/* Badge */}
-          <div className="login-right-badge-row">
-            <span className="login-right-access-label">AKSES</span>
-            <span className="login-right-admin-badge">ADMIN</span>
+          <div className="register-right-badge-row">
+            <span className="register-right-access-label">AKSES</span>
+            <span className="register-right-admin-badge">ADMIN</span>
           </div>
 
-          <h2 className="login-right-title">Masuk ke panel admin</h2>
-          <p className="login-right-subtitle">
-            Gunakan kredensial admin yang diberikan tim Cloud Computing. Semua perubahan tercatat di log audit.
+          <h2 className="register-right-title">Registrasi admin baru</h2>
+          <p className="register-right-subtitle">
+            Buat kredensial admin baru di sistem Supabase. Semua aktivitas admin akan tercatat secara aman di log audit.
           </p>
 
           {error && (
-            <div className="login-error-banner">
+            <div className="register-error-banner">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
@@ -242,7 +234,7 @@ export default function LoginPage() {
           )}
 
           {success && (
-            <div className="login-status-banner" style={{ marginTop: 0, marginBottom: "1.25rem" }}>
+            <div className="register-status-banner" style={{ marginTop: 0, marginBottom: "1.25rem" }}>
               <div className="status-banner-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -257,7 +249,7 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          <form className="login-form" onSubmit={handleLogin}>
+          <form className="register-form" onSubmit={handleRegister}>
             <div className="form-group">
               <label className="form-label" htmlFor="email">EMAIL ADMIN</label>
               <input
@@ -273,13 +265,7 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <div className="form-label-row">
-                <label className="form-label" htmlFor="password">KATA SANDI</label>
-                <a href="#lupa" className="form-link" onClick={(e) => {
-                  e.preventDefault();
-                  alert("Fitur lupa sandi: Silakan hubungi tim Cloud Computing untuk mereset kata sandi Anda.");
-                }}>Lupa sandi?</a>
-              </div>
+              <label className="form-label" htmlFor="password">KATA SANDI</label>
               <div className="input-container">
                 <input
                   id="password"
@@ -302,27 +288,34 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember me Checkbox */}
-            <label className="checkbox-row" htmlFor="remember-me">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={loading}
-              />
-              <div className="custom-checkbox">
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 4L3.5 6.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+            <div className="form-group">
+              <label className="form-label" htmlFor="confirm-password">KONFIRMASI KATA SANDI</label>
+              <div className="input-container">
+                <input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="form-input form-input-password"
+                  placeholder="Ulangi kata sandi"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="btn-toggle-password"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={loading}
+                >
+                  {showConfirmPassword ? "Sembunyikan" : "Tampilkan"}
+                </button>
               </div>
-              <span className="checkbox-label">Jaga saya tetap masuk di perangkat ini</span>
-            </label>
+            </div>
 
             {/* Submit */}
             <button
               type="submit"
-              className="btn-login-submit"
+              className="btn-register-submit"
               disabled={loading}
             >
               {loading ? (
@@ -331,11 +324,11 @@ export default function LoginPage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.2 }}></circle>
                     <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" style={{ opacity: 0.8 }}></path>
                   </svg>
-                  <span>Memproses...</span>
+                  <span>Mendaftarkan...</span>
                 </>
               ) : (
                 <>
-                  <span>Masuk ke dashboard</span>
+                  <span>Daftar admin baru</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                     <polyline points="12 5 19 12 12 19"></polyline>
@@ -345,24 +338,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="login-divider">
-            <span className="login-divider-text">ATAU</span>
-          </div>
-
-          {/* SSO login */}
-          <button 
-            type="button" 
-            className="btn-sso" 
-            onClick={handleSSOLogin}
-            disabled={loading}
-          >
-            <span className="sso-icon">K</span>
-            <span>Lanjut dengan SSO Kampus</span>
-          </button>
-
           {/* Security Alert Badge */}
-          <div className="login-status-banner">
+          <div className="register-status-banner">
             <div className="status-banner-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--open)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -371,20 +348,20 @@ export default function LoginPage() {
             </div>
             <div className="status-banner-content">
               <span className="status-banner-title">Koneksi aman - TLS 1.3</span>
-              <span className="status-banner-desc">Login dibatasi • 5 percobaan / 15 menit • IP tercatat</span>
+              <span className="status-banner-desc">Pendaftaran dienkripsi • Verifikasi internal diperlukan • IP tercatat</span>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="login-footer">
-          <span className="login-footer-text">
+        <div className="register-footer">
+          <span className="register-footer-text">
             © 2026 • Cloud Computing • Map Directory v1.0
           </span>
-          <div className="login-footer-links">
-            <a href="#kebijakan" className="login-footer-link" onClick={(e) => { e.preventDefault(); alert("Kebijakan Privasi Intern."); }}>Kebijakan privasi</a>
-            <a href="#ketentuan" className="login-footer-link" onClick={(e) => { e.preventDefault(); alert("Ketentuan Layanan Intern."); }}>Ketentuan layanan</a>
-            <a href="#status" className="login-footer-link status-green" onClick={(e) => { e.preventDefault(); alert("Status Sistem: Semua Server Beroperasi Normal."); }}>Status sistem</a>
+          <div className="register-footer-links">
+            <a href="#kebijakan" className="register-footer-link" onClick={(e) => { e.preventDefault(); alert("Kebijakan Privasi Intern."); }}>Kebijakan privasi</a>
+            <a href="#ketentuan" className="register-footer-link" onClick={(e) => { e.preventDefault(); alert("Ketentuan Layanan Intern."); }}>Ketentuan layanan</a>
+            <a href="#status" className="register-footer-link status-green" onClick={(e) => { e.preventDefault(); alert("Status Sistem: Semua Server Beroperasi Normal."); }}>Status sistem</a>
           </div>
         </div>
       </div>
